@@ -1,0 +1,113 @@
+# ============================================================
+# Identity Service — Staging Environment Values
+# ============================================================
+# Production-like configuration for staging/pre-prod.
+# All sensitive values MUST be supplied via existingSecret.
+
+image:
+  repository: ghcr.io/your-org/identity-service   # Replace with your registry
+  tag: staging
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+# ─── Resources (production-like) ─────────────────────────────
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+# ─── Autoscaling ─────────────────────────────────────────────
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 70
+
+# ─── PDB ─────────────────────────────────────────────────────
+pdb:
+  enabled: true
+  minAvailable: 1
+
+# ─── NetworkPolicy ──────────────────────────────────────────
+networkPolicy:
+  enabled: true
+  ingressPodSelector:
+    matchLabels:
+      app.kubernetes.io/name: ingress-nginx
+  databasePort: 5432
+
+# ─── Ingress ─────────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: nginx
+  host: identity-staging.example.com
+  path: /
+  pathType: Prefix
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+  tls:
+    enabled: true
+    secretName: identity-service-staging-tls
+
+# ─── Application Configuration ───────────────────────────────
+config:
+  springProfile: prod   # Use prod profile in staging for production-like behavior
+
+  database:
+    host: postgres-staging
+    port: 5432
+    name: identity_staging
+    username: identity
+
+  jwt:
+    issuer: identity-service
+    accessTokenExpiration: PT15M
+    refreshTokenExpiration: P30D
+    privateKeyPath: /app/keys/private.pem
+    publicKeyPath: /app/keys/public.pem
+
+  security:
+    maxLoginAttempts: 5
+    lockDuration: PT15M
+    corsAllowedOrigins: "https://staging-frontend.example.com"
+
+  password:
+    minimumLength: 8
+    requireUppercase: true
+    requireLowercase: true
+    requireDigit: true
+    requireSpecial: false
+
+  email:
+    verificationRequired: false
+
+  seed:
+    enabled: false
+
+  cookie:
+    enabled: true
+    secure: true
+    sameSite: Lax
+    domain: "example.com"
+    path: /
+
+  logging:
+    level: INFO
+
+# ─── Secret ──────────────────────────────────────────────────
+# Create before installing:
+#
+#   kubectl create secret generic identity-service-secrets \
+#     --from-literal=DATABASE_PASSWORD='<staging-db-password>' \
+#     --from-file=jwt-private-key=./private.pem \
+#     --from-file=jwt-public-key=./public.pem \
+#     -n identity-staging
+#
+secret:
+  existingSecret: "identity-service-secrets"
+  databasePassword: ""    # Ignored when existingSecret is set

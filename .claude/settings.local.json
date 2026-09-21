@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./mvnw compile:*)",
+      "Bash(./mvnw test-compile:*)",
+      "Bash(helm lint:*)",
+      "Bash(/c/Users/raksmey.koung/.vs-kubernetes/tools/helm/windows-amd64/helm.exe lint:*)",
+      "Bash(./mvnw test:*)"
+    ]
+  }
+}

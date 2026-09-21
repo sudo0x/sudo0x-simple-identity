@@ -1,0 +1,105 @@
+# ============================================================
+# Identity Service — Local Development Values
+# ============================================================
+# For running in a local Kubernetes cluster (kind, minikube, k3d).
+# Override defaults with: helm install ... -f values-local.yaml
+#
+# Assumes:
+#   - PostgreSQL running as a separate service named "postgres"
+#     (or via docker-compose with k8s port-forward)
+#   - JWT keys: use the "generate" ephemeral mode for convenience
+#   - No TLS, no Ingress, single replica
+
+image:
+  repository: identity-service
+  tag: latest
+  pullPolicy: Never    # Use locally-built image, not pulled from registry
+
+replicaCount: 1
+
+# ─── Resources (reduced for local dev) ──────────────────────
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# ─── Probes (more lenient for slow local starts) ─────────────
+startupProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: 8080
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  failureThreshold: 15
+  timeoutSeconds: 5
+
+# ─── Autoscaling / PDB (disabled for local) ─────────────────
+autoscaling:
+  enabled: false
+
+pdb:
+  enabled: false
+
+# ─── NetworkPolicy (disabled — local clusters vary) ──────────
+networkPolicy:
+  enabled: false
+
+# ─── Ingress (disabled — use port-forward) ───────────────────
+ingress:
+  enabled: false
+
+# ─── Application Configuration ───────────────────────────────
+config:
+  springProfile: local
+
+  database:
+    host: postgres
+    port: 5432
+    name: identity
+    username: identity
+
+  jwt:
+    issuer: identity-service
+    accessTokenExpiration: PT15M
+    refreshTokenExpiration: P30D
+    # "generate" uses an ephemeral RSA key pair — fine for local dev
+    privateKeyPath: generate
+    publicKeyPath: generate
+
+  security:
+    maxLoginAttempts: 10        # More lenient for local testing
+    lockDuration: PT5M
+    corsAllowedOrigins: "http://localhost:3000,http://localhost:5173"
+
+  password:
+    minimumLength: 8
+    requireUppercase: true
+    requireLowercase: true
+    requireDigit: true
+    requireSpecial: false
+
+  email:
+    verificationRequired: false
+
+  seed:
+    enabled: true              # Seed admin user for local dev
+
+  cookie:
+    enabled: false
+    secure: false              # HTTP is fine locally
+    sameSite: Lax
+    domain: ""
+    path: /
+
+  logging:
+    level: DEBUG
+
+# ─── Secret ──────────────────────────────────────────────────
+# For local dev, set databasePassword here or via --set.
+# Never use this pattern in staging or production.
+secret:
+  existingSecret: ""
+  databasePassword: "localdevpassword"

@@ -1,0 +1,38 @@
+# Override for test — use Testcontainers JDBC URL to spin up a real Postgres
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:16:///identity?TC_REUSABLE=true
+    username: identity
+    password: identity
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  flyway:
+    enabled: true
+
+identity:
+  jwt:
+    private-key-location: generate
+    public-key-location: generate
+    access-token-expiration: PT5M
+    refresh-token-expiration: PT1H
+  seed:
+    enabled: false
+  security:
+    max-login-attempts: 5
+    lock-duration: PT15M
+  email:
+    verification-required: false
+  password:
+    minimum-length: 8
+    require-uppercase: true
+    require-lowercase: true
+    require-digit: true
+    require-special: false
+
+logging:
+  level:
+    com.sudo0x.simple.identity: INFO
+    org.springframework.security: WARN

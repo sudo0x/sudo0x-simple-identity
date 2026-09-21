@@ -1,0 +1,235 @@
+# ============================================================
+# Identity Service — Default Helm Values
+# ============================================================
+# These are safe defaults. Override per environment using
+# values-local.yaml, values-dev.yaml, values-staging.yaml, or values-prod.yaml.
+# NEVER put real secrets here.
+
+# ─── Image ──────────────────────────────────────────────────
+image:
+  repository: identity-service
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# ─── Replica / Deployment ──────────────────────────────────
+replicaCount: 1
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+terminationGracePeriodSeconds: 30
+
+# ─── Service Account ────────────────────────────────────────
+serviceAccount:
+  create: true
+  # Do not auto-mount the Kubernetes API token — the app doesn't need it
+  automount: false
+  annotations: {}
+  name: ""
+
+# ─── Service ────────────────────────────────────────────────
+service:
+  type: ClusterIP
+  port: 8080
+  annotations: {}
+
+containerPort: 8080
+
+# ─── Ingress ────────────────────────────────────────────────
+ingress:
+  enabled: false
+  className: nginx
+  host: identity.example.com
+  path: /
+  pathType: Prefix
+  annotations: {}
+    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+  tls:
+    enabled: false
+    secretName: identity-service-tls
+
+# ─── Resources ──────────────────────────────────────────────
+# Tune based on actual load — these are conservative starting points.
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+# ─── Autoscaling ────────────────────────────────────────────
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+  # targetMemoryUtilizationPercentage: 80
+
+# ─── Pod Disruption Budget ──────────────────────────────────
+pdb:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1  # Alternative to minAvailable
+
+# ─── Network Policy ─────────────────────────────────────────
+networkPolicy:
+  enabled: false
+  # Restrict ingress to pods matching this selector.
+  # Adjust to match your Ingress controller pods.
+  ingressPodSelector:
+    {}
+    # matchLabels:
+    #   app.kubernetes.io/name: ingress-nginx
+  # Allow egress to PostgreSQL on this port
+  databasePort: 5432
+
+# ─── Probes ─────────────────────────────────────────────────
+# Spring Boot Actuator endpoints (probes.enabled=true required in app config)
+startupProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: 8080
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  failureThreshold: 10
+  timeoutSeconds: 5
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  failureThreshold: 3
+  timeoutSeconds: 5
+
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: 8080
+  initialDelaySeconds: 60
+  periodSeconds: 15
+  failureThreshold: 3
+  timeoutSeconds: 5
+
+# ─── Pod Security Context ────────────────────────────────────
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+# ─── Container Security Context ─────────────────────────────
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# ─── Scheduling ─────────────────────────────────────────────
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []
+
+# ─── Annotations / Labels ────────────────────────────────────
+podAnnotations: {}
+podLabels: {}
+deploymentAnnotations: {}
+serviceAnnotations: {}
+
+# ─── Extra env / volumes (for advanced use cases) ────────────
+extraEnv: []
+# - name: MY_VAR
+#   value: my-value
+
+extraEnvFrom: []
+# - secretRef:
+#     name: my-extra-secret
+
+extraVolumes: []
+extraVolumeMounts: []
+
+# ─── Application Configuration (NON-SENSITIVE) ──────────────
+# These go into a ConfigMap and are safe to commit.
+config:
+  springProfile: prod
+
+  database:
+    host: postgres
+    port: 5432
+    name: identity
+    username: identity
+
+  jwt:
+    issuer: identity-service
+    accessTokenExpiration: PT15M
+    refreshTokenExpiration: P30D
+    # Paths inside the container where the PEM files will be mounted from the Secret
+    privateKeyPath: /app/keys/private.pem
+    publicKeyPath: /app/keys/public.pem
+
+  security:
+    maxLoginAttempts: 5
+    lockDuration: PT15M
+    corsAllowedOrigins: ""   # e.g. "https://app.example.com"
+
+  password:
+    minimumLength: 8
+    requireUppercase: true
+    requireLowercase: true
+    requireDigit: true
+    requireSpecial: false
+
+  email:
+    verificationRequired: false
+    verificationTokenExpiration: PT24H
+    resetTokenExpiration: PT1H
+
+  seed:
+    enabled: false
+
+  cookie:
+    enabled: false
+    secure: true
+    sameSite: Lax
+    domain: ""
+    path: /
+
+  logging:
+    level: INFO
+
+# ─── Secrets (SENSITIVE) ────────────────────────────────────
+# Production: create the Secret externally and set existingSecret.
+# See README for kubectl create secret examples.
+#
+# DO NOT put real values here — use helm --set or a secrets manager.
+secret:
+  existingSecret: ""   # If set, use this Secret instead of creating one
+  # Keys expected in the Secret (whether created here or externally):
+  #   DATABASE_PASSWORD  — PostgreSQL password
+  #   jwt-private-key    — RSA private key PEM (binary file content)
+  #   jwt-public-key     — RSA public key PEM (binary file content)
+  #
+  # Only used when existingSecret is empty (chart-managed secret).
+  # Never set real values here — they will be committed to version control.
+  databasePassword: ""
+  # jwtPrivateKeyB64: ""   # base64-encoded private.pem content
+  # jwtPublicKeyB64: ""    # base64-encoded public.pem content
+
+# ─── tmp volume (required for readOnlyRootFilesystem) ────────
+tmpVolume:
+  enabled: true
+  sizeLimit: 64Mi

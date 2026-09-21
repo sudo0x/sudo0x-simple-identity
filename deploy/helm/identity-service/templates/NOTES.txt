@@ -1,0 +1,74 @@
+Identity Service has been deployed successfully.
+
+Release:   {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+Version:   {{ .Chart.AppVersion }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SERVICE ENDPOINT
+{{- if .Values.ingress.enabled }}
+
+  External URL:
+    {{- if .Values.ingress.tls.enabled }}
+    https://{{ .Values.ingress.host }}
+    {{- else }}
+    http://{{ .Values.ingress.host }}
+    {{- end }}
+
+{{- else }}
+
+  The service is available internally within the cluster:
+
+    export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} \
+      -l "app.kubernetes.io/name={{ include "identity-service.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" \
+      -o jsonpath="{.items[0].metadata.name}")
+    kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:{{ .Values.containerPort }}
+
+  Then visit: http://localhost:8080
+
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+HEALTH CHECKS
+
+  kubectl get pods -n {{ .Release.Namespace }}
+  kubectl describe deployment {{ include "identity-service.fullname" . }} -n {{ .Release.Namespace }}
+  kubectl logs -n {{ .Release.Namespace }} deployment/{{ include "identity-service.fullname" . }}
+
+JWKS (Public Key):
+  /actuator/health/liveness   — liveness probe
+  /actuator/health/readiness  — readiness probe
+  /.well-known/jwks.json      — JWT public key set
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+HELM TESTS
+
+  helm test {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+{{- if not .Values.secret.existingSecret }}
+WARNING: No existingSecret configured. The chart has created a Kubernetes Secret.
+For production deployments, create the Secret externally and set:
+  secret.existingSecret: "<your-secret-name>"
+
+See the README for instructions on creating the production Secret.
+{{- end }}
+
+{{- if .Values.config.seed.enabled }}
+WARNING: seed.enabled=true. The admin seed user will be created on startup.
+This should NEVER be enabled in production.
+{{- end }}
+
+{{- if and .Values.ingress.enabled (not .Values.ingress.tls.enabled) }}
+WARNING: Ingress is enabled without TLS. Tokens and cookies will be transmitted
+over plain HTTP. Enable TLS for any non-local environment.
+{{- end }}
+
+{{- if and .Values.config.cookie.enabled (not .Values.config.cookie.secure) }}
+WARNING: Cookie auth is enabled with secure=false. Set cookie.secure=true
+when deploying behind HTTPS to ensure cookies are protected.
+{{- end }}

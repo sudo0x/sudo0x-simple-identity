@@ -1,0 +1,17 @@
+apiVersion: v2
+name: identity-service
+description: Production-grade standalone Identity Service — authentication, authorization, JWT, RBAC
+type: application
+version: 0.1.0
+appVersion: "0.0.1-SNAPSHOT"
+keywords:
+  - identity
+  - authentication
+  - authorization
+  - jwt
+  - rbac
+  - spring-boot
+home: ""
+maintainers:
+  - name: identity-team
+kubeVersion: ">=1.25.0-0"

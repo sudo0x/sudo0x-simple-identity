@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "identity-service.configMapName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "identity-service.labels" . | nindent 4 }}
+data:
+  # ── Spring ────────────────────────────────────────────────
+  SPRING_PROFILES_ACTIVE: {{ .Values.config.springProfile | quote }}
+
+  # ── Server ───────────────────────────────────────────────
+  SERVER_PORT: {{ .Values.containerPort | quote }}
+
+  # ── Database (non-sensitive) ─────────────────────────────
+  DATABASE_URL: {{ printf "jdbc:postgresql://%s:%d/%s" .Values.config.database.host (int .Values.config.database.port) .Values.config.database.name | quote }}
+  DATABASE_USER: {{ .Values.config.database.username | quote }}
+
+  # ── JWT (non-sensitive) ──────────────────────────────────
+  JWT_ISSUER: {{ .Values.config.jwt.issuer | quote }}
+  JWT_ACCESS_TOKEN_EXPIRATION: {{ .Values.config.jwt.accessTokenExpiration | quote }}
+  JWT_REFRESH_TOKEN_EXPIRATION: {{ .Values.config.jwt.refreshTokenExpiration | quote }}
+  {{- if and .Values.config.jwt.privateKeyPath (ne .Values.config.jwt.privateKeyPath "generate") }}
+  JWT_PRIVATE_KEY_LOCATION: {{ printf "file:%s" .Values.config.jwt.privateKeyPath | quote }}
+  JWT_PUBLIC_KEY_LOCATION: {{ printf "file:%s" .Values.config.jwt.publicKeyPath | quote }}
+  {{- else }}
+  JWT_PRIVATE_KEY_LOCATION: "generate"
+  JWT_PUBLIC_KEY_LOCATION: "generate"
+  {{- end }}
+
+  # ── Security ─────────────────────────────────────────────
+  MAX_LOGIN_ATTEMPTS: {{ .Values.config.security.maxLoginAttempts | quote }}
+  ACCOUNT_LOCK_DURATION: {{ .Values.config.security.lockDuration | quote }}
+  CORS_ALLOWED_ORIGINS: {{ .Values.config.security.corsAllowedOrigins | quote }}
+
+  # ── Password Policy ───────────────────────────────────────
+  PASSWORD_MIN_LENGTH: {{ .Values.config.password.minimumLength | quote }}
+  PASSWORD_REQUIRE_UPPERCASE: {{ .Values.config.password.requireUppercase | quote }}
+  PASSWORD_REQUIRE_LOWERCASE: {{ .Values.config.password.requireLowercase | quote }}
+  PASSWORD_REQUIRE_DIGIT: {{ .Values.config.password.requireDigit | quote }}
+  PASSWORD_REQUIRE_SPECIAL: {{ .Values.config.password.requireSpecial | quote }}
+
+  # ── Email / Tokens ────────────────────────────────────────
+  EMAIL_VERIFICATION_REQUIRED: {{ .Values.config.email.verificationRequired | quote }}
+  EMAIL_VERIFICATION_EXPIRY: {{ .Values.config.email.verificationTokenExpiration | quote }}
+  PASSWORD_RESET_EXPIRY: {{ .Values.config.email.resetTokenExpiration | quote }}
+
+  # ── Cookie Auth ───────────────────────────────────────────
+  COOKIE_AUTH_ENABLED: {{ .Values.config.cookie.enabled | quote }}
+  COOKIE_SECURE: {{ .Values.config.cookie.secure | quote }}
+  COOKIE_SAME_SITE: {{ .Values.config.cookie.sameSite | quote }}
+  COOKIE_DOMAIN: {{ .Values.config.cookie.domain | quote }}
+
+  # ── Seed Data ─────────────────────────────────────────────
+  SEED_ENABLED: {{ .Values.config.seed.enabled | quote }}
+
+  # ── Logging ───────────────────────────────────────────────
+  LOGGING_LEVEL_COM_SUDO0X: {{ .Values.config.logging.level | quote }}

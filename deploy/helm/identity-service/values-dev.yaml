@@ -1,0 +1,105 @@
+# ============================================================
+# Identity Service — Development Environment Values
+# ============================================================
+# For a shared development cluster (dev namespace).
+# Override defaults with: helm install ... -f values-dev.yaml
+#
+# Sensitive values (database password, JWT keys) must be
+# supplied separately via --set or an existing Secret.
+
+image:
+  repository: ghcr.io/your-org/identity-service   # Replace with your registry
+  tag: dev
+  pullPolicy: Always
+
+replicaCount: 1
+
+# ─── Resources ───────────────────────────────────────────────
+resources:
+  requests:
+    cpu: 150m
+    memory: 384Mi
+  limits:
+    cpu: 750m
+    memory: 768Mi
+
+# ─── Autoscaling (disabled in dev) ──────────────────────────
+autoscaling:
+  enabled: false
+
+pdb:
+  enabled: false
+
+# ─── NetworkPolicy ──────────────────────────────────────────
+networkPolicy:
+  enabled: false
+
+# ─── Ingress ─────────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: nginx
+  host: identity-dev.example.com
+  path: /
+  pathType: Prefix
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+  tls:
+    enabled: false    # No TLS in dev; enable if your cluster supports it
+
+# ─── Application Configuration ───────────────────────────────
+config:
+  springProfile: dev
+
+  database:
+    host: postgres
+    port: 5432
+    name: identity_dev
+    username: identity
+
+  jwt:
+    issuer: identity-service
+    accessTokenExpiration: PT30M     # Longer expiry for easier dev testing
+    refreshTokenExpiration: P7D
+    privateKeyPath: /app/keys/private.pem
+    publicKeyPath: /app/keys/public.pem
+
+  security:
+    maxLoginAttempts: 10
+    lockDuration: PT5M
+    corsAllowedOrigins: "http://localhost:3000,https://dev-frontend.example.com"
+
+  password:
+    minimumLength: 8
+    requireUppercase: true
+    requireLowercase: true
+    requireDigit: true
+    requireSpecial: false
+
+  email:
+    verificationRequired: false
+
+  seed:
+    enabled: false
+
+  cookie:
+    enabled: false
+    secure: false
+    sameSite: Lax
+    domain: ""
+    path: /
+
+  logging:
+    level: DEBUG
+
+# ─── Secret ──────────────────────────────────────────────────
+# Create the secret externally before installing:
+#
+#   kubectl create secret generic identity-service-secrets \
+#     --from-literal=DATABASE_PASSWORD='...' \
+#     --from-file=jwt-private-key=./private.pem \
+#     --from-file=jwt-public-key=./public.pem \
+#     -n identity-dev
+#
+secret:
+  existingSecret: ""
+  databasePassword: ""    # Set via --set secret.databasePassword=... or existingSecret

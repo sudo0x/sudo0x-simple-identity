@@ -1,0 +1,138 @@
+# ============================================================
+# Identity Service — Production Values
+# ============================================================
+# NEVER put real secrets here. All sensitive values MUST be
+# supplied via existingSecret (created externally).
+#
+# Prerequisites:
+#   kubectl create secret generic identity-service-secrets \
+#     --from-literal=DATABASE_PASSWORD='<prod-db-password>' \
+#     --from-file=jwt-private-key=./private.pem \
+#     --from-file=jwt-public-key=./public.pem \
+#     -n identity
+#
+# Installation:
+#   helm upgrade --install identity-service \
+#     deploy/helm/identity-service \
+#     -n identity \
+#     --create-namespace \
+#     -f deploy/helm/identity-service/values-prod.yaml
+
+image:
+  repository: ghcr.io/your-org/identity-service   # Replace with your registry
+  tag: "1.0.0"                                     # Pin to a specific release tag
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+terminationGracePeriodSeconds: 60
+
+# ─── Resources (tune based on observed metrics) ───────────────
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+# ─── Autoscaling ─────────────────────────────────────────────
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+# ─── PDB ─────────────────────────────────────────────────────
+pdb:
+  enabled: true
+  minAvailable: 1
+
+# ─── NetworkPolicy ──────────────────────────────────────────
+networkPolicy:
+  enabled: true
+  ingressPodSelector:
+    matchLabels:
+      app.kubernetes.io/name: ingress-nginx
+  databasePort: 5432
+
+# ─── Ingress ─────────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: nginx
+  host: identity.example.com       # Replace with your production domain
+  path: /
+  pathType: Prefix
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+  tls:
+    enabled: true
+    secretName: identity-service-tls
+
+# ─── Application Configuration ───────────────────────────────
+config:
+  springProfile: prod
+
+  database:
+    host: postgres          # Replace with managed PostgreSQL hostname
+    port: 5432
+    name: identity
+    username: identity
+
+  jwt:
+    issuer: identity-service
+    accessTokenExpiration: PT15M
+    refreshTokenExpiration: P30D
+    privateKeyPath: /app/keys/private.pem
+    publicKeyPath: /app/keys/public.pem
+
+  security:
+    maxLoginAttempts: 5
+    lockDuration: PT15M
+    corsAllowedOrigins: "https://app.example.com"   # Replace with your frontend origin
+
+  password:
+    minimumLength: 8
+    requireUppercase: true
+    requireLowercase: true
+    requireDigit: true
+    requireSpecial: false
+
+  email:
+    verificationRequired: false    # Set to true if email verification is required
+
+  seed:
+    enabled: false    # NEVER enable in production
+
+  cookie:
+    enabled: true
+    secure: true      # Requires HTTPS
+    sameSite: Lax
+    domain: "example.com"    # Replace with your domain (shared with frontend)
+    path: /
+
+  logging:
+    level: INFO
+
+# ─── Pod Annotations (for monitoring/secrets-injection tools) ─
+podAnnotations:
+  {}
+  # vault.hashicorp.com/agent-inject: "true"
+  # prometheus.io/scrape: "true"
+  # prometheus.io/path: "/actuator/prometheus"
+  # prometheus.io/port: "8080"
+
+# ─── Secret ──────────────────────────────────────────────────
+# Always use existingSecret in production. Never set databasePassword here.
+secret:
+  existingSecret: "identity-service-secrets"
+  databasePassword: ""

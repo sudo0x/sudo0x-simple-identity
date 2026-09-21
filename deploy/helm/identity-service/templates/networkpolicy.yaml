@@ -1,0 +1,52 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "identity-service.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "identity-service.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "identity-service.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # ── Allow traffic from the Ingress controller ────────────────
+    {{- if .Values.networkPolicy.ingressPodSelector }}
+    - from:
+        - namespaceSelector: {}
+          podSelector:
+            {{- toYaml .Values.networkPolicy.ingressPodSelector | nindent 12 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.containerPort }}
+    {{- else }}
+    # No ingressPodSelector set — allow all ingress (less restrictive).
+    # Set networkPolicy.ingressPodSelector to restrict to your Ingress controller pods.
+    - ports:
+        - protocol: TCP
+          port: {{ .Values.containerPort }}
+    {{- end }}
+    # ── Allow inter-pod traffic (for same-service health checks) ─
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "identity-service.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.containerPort }}
+  egress:
+    # ── Allow egress to PostgreSQL ────────────────────────────────
+    - ports:
+        - protocol: TCP
+          port: {{ .Values.networkPolicy.databasePort }}
+    # ── Allow DNS resolution ──────────────────────────────────────
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+{{- end }}

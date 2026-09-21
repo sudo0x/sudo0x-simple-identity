@@ -1,0 +1,37 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:192.168.18.221}:${DB_PORT:5437}/${DB_NAME:identity}
+    username: ${DB_USER:identity}
+    password: ${DB_PASS:identity}
+  jpa:
+    show-sql: true
+
+  # Enable dev mail catching (console logging)
+  mail:
+    host: localhost
+    port: 1025
+
+identity:
+  seed:
+    enabled: true
+    admin-username: admin
+    admin-email: admin@localhost.dev
+    # Set SEED_ADMIN_PASSWORD env var or use default (change in real usage)
+    admin-password: ${SEED_ADMIN_PASSWORD:Admin@1234!}
+  jwt:
+    # 'generate' means ephemeral RSA keys are generated on startup (dev only)
+    private-key-location: generate
+    public-key-location: generate
+  email:
+    verification-required: false
+
+logging:
+  level:
+    com.sudo0x.simple.identity: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+
+springdoc:
+  swagger-ui:
+    enabled: true
