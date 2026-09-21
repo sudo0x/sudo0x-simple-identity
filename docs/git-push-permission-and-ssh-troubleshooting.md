@@ -127,6 +127,111 @@ The token must have permission to write to the repository. Remove the old
 Using the SSH remote is usually simpler because it avoids cached HTTPS account
 credentials.
 
+## What credential information is visible
+
+From the configuration and command output, the following information is visible:
+
+- GitHub username used by the SSH alias: `sudo0x`
+- SSH alias: `github.com-sudo0x`
+- Private-key **file path**: `~/.ssh/id_ed25519_sudo0x`
+- Public-key file path: `~/.ssh/id_ed25519_sudo0x.pub`
+- Repository: `sudo0x/sudo0x-simple-identity`
+
+The private key contents are not shown here. Never share the contents of
+`id_ed25519_sudo0x`, its passphrase, GitHub tokens, or passwords. The `.pub`
+file is intended to be uploaded to GitHub, but it should still only be shared
+when necessary.
+
+## Change the GitHub credential used by SSH
+
+If you want Git to use another GitHub account, create a separate SSH key for
+that account. Do not overwrite a key that is still used by another account.
+
+### 1. Create a new key pair
+
+Run this in Git Bash and replace the email with the email associated with the
+target GitHub account:
+
+```bash
+ssh-keygen -t ed25519 -C "your-email@example.com" -f ~/.ssh/id_ed25519_github_new
+```
+
+Choose a strong passphrase when prompted. This creates:
+
+- `~/.ssh/id_ed25519_github_new` — private key; keep secret
+- `~/.ssh/id_ed25519_github_new.pub` — public key; upload this to GitHub
+
+### 2. Add the public key to the target GitHub account
+
+Display only the public key:
+
+```bash
+cat ~/.ssh/id_ed25519_github_new.pub
+```
+
+In GitHub, open **Settings → SSH and GPG keys → New SSH key**, give it a
+recognizable title, paste the public key, and save it.
+
+### 3. Add a separate SSH alias
+
+Edit `~/.ssh/config`:
+
+```bash
+notepad ~/.ssh/config
+```
+
+Add an alias for the new account:
+
+```sshconfig
+Host github.com-new-account
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/id_ed25519_github_new
+    IdentitiesOnly yes
+```
+
+Use a different alias for each GitHub account. The alias is how Git selects the
+correct key when all accounts use `github.com`.
+
+### 4. Test the new account
+
+```bash
+ssh -T github.com-new-account
+```
+
+The response should identify the intended GitHub username. GitHub may say that
+it does not provide shell access; that message is normal for a successful SSH
+authentication.
+
+### 5. Change this project to the new account
+
+From the project directory:
+
+```bash
+git remote set-url origin git@github.com-new-account:sudo0x/sudo0x-simple-identity.git
+git remote -v
+git push -u origin master
+```
+
+The target GitHub account must have write access to the repository. If it does
+not, add that account as a collaborator or use a repository where it has access.
+
+## Remove the old credential
+
+Only remove the old key after confirming the new key works:
+
+1. Remove the old public key from **GitHub Settings → SSH and GPG keys**.
+2. Remove the old `Host github.com-sudo0x` entry from `~/.ssh/config` if it is
+   no longer needed.
+3. Delete the old local key files only if you are certain no other project uses
+   them:
+
+   ```bash
+   rm ~/.ssh/id_ed25519_sudo0x ~/.ssh/id_ed25519_sudo0x.pub
+   ```
+
+Do not delete the old key if another repository or computer still depends on it.
+
 ## Common mistakes
 
 ### Trying to enter the SSH config file as a directory
